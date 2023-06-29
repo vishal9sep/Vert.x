@@ -1,0 +1,70 @@
+package com.finoli.assignment;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.http.HttpServer;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.jdbc.JDBCClient;
+import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.jdbcclient.JDBCPool;
+import io.vertx.sqlclient.SqlClient;
+
+import java.util.UUID;
+
+public class MainVerticle extends AbstractVerticle {
+
+  private SqlClient sqlClient;
+
+  public void start(Promise<Void> startPromise) throws Exception{
+
+    HttpServer server = vertx.createHttpServer();
+    Router router = Router.router(vertx);
+
+    //Enable body parsing
+    router.route().handler(BodyHandler.create());
+
+    //Routes
+    router.post("/api/users").handler(this::createUser);
+    router.get("api/users").handler(this::getUsers);
+
+    //Creating a JDBC client
+    JsonObject dbConfig = new JsonObject()
+      .put("url", "jdbc:mysql://localhost:3306/finoli")
+      .put("driver_class", "com.mysql.cj.jdbc.Driver")
+      .put("username", "root")
+      .put("passowrd", "123456");
+
+    JDBCPool pool = JDBCPool.pool(vertx, dbConfig);
+//    sqlClient = JDBCClient.createShared(vertx, dbConfig);
+
+    server.requestHandler(router).listen(8080, http -> {
+      if(http.succeeded()){
+        System.out.println("Server started on port 8080");
+        startFuture.isComplete();
+      }
+      else {
+        System.out.println("Failed to start the server: " + http.cause());
+        startFuture.failed();
+      }
+    });
+  }
+
+  private void getUsers(RoutingContext routingContext) {
+  }
+
+  private void createUser(RoutingContext routingContext){
+    JsonObject user = routingContext.getBodyAsJson();
+
+    //Generate a new UUID
+    String uuid = UUID.randomUUID().toString();
+    user.put("id", uuid);
+
+    //Update the timestamp
+    user.put("timestamp", java.time.OffsetDateTime.now().toString());
+
+    //Insert user record into th DB
+  }
+}
